@@ -58,13 +58,15 @@
 // }
 import { isHr } from '@/access/isHr'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
+import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
+import { hasValidJWT } from '@/access/isLoggedIn'
 
 export const CareerForms: CollectionConfig = {
   slug: 'careerforms',
   access: {
     read: isHr,
-    create: () => false,
+    create: () => true, // Allow all
     update: isSuperAdminandAdmin,
     delete: isSuperAdminandAdmin,
   },
@@ -73,95 +75,37 @@ export const CareerForms: CollectionConfig = {
       name: 'firstName',
       type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'First name is required'
-        }
-        if (value.trim().length < 2) {
-          return 'First name must be at least 2 characters long'
-        }
-        return true
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'lastName',
       type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'Last name is required'
-        }
-        if (value.trim().length < 2) {
-          return 'Last name must be at least 2 characters long'
-        }
-        return true
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'contactNumber',
       type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'Contact number is required'
-        }
-        // Basic phone number validation (adjust regex based on your requirements)
-        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
-        if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
-          return 'Please enter a valid contact number'
-        }
-        return true
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'portfolioLink',
       type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'Portfolio link is required'
-        }
-        // URL validation
-        try {
-          new URL(value)
-          return true
-        } catch {
-          return 'Please enter a valid URL'
-        }
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'message',
       type: 'textarea', // Changed to textarea for better UX
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'Message is required'
-        }
-        if (value.trim().length < 10) {
-          return 'Message must be at least 10 characters long'
-        }
-        if (value.trim().length > 1000) {
-          return 'Message must be less than 1000 characters'
-        }
-        return true
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'emailId',
-      type: 'email',
+      type: 'text',
       required: true,
-      validate: (value: string | null | undefined) => {
-        if (!value || typeof value !== 'string' || value.trim().length === 0) {
-          return 'Email is required'
-        }
-        // Additional email validation beyond the built-in type
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(value)) {
-          return 'Please enter a valid email address'
-        }
-        return true
-      },
+      hooks: encryptionHooks,
     },
     {
       name: 'resume',
@@ -213,6 +157,7 @@ export const CareerForms: CollectionConfig = {
 
         return true
       },
+      // hooks: encryptionHooks,
     },
   ],
   // Additional collection-level hooks for server-side validation

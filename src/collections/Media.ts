@@ -64,11 +64,12 @@
 //   },
 // }
 
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, User } from 'payload'
 import fs from 'fs'
 import path from 'path'
-import { isContent } from '@/access/isContent'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
+import { mediaReadAccess } from '@/access/mediaReadAccess'
+import UserRoles from '@/utils/RoleTypes'
 
 // Define allowed file types with their extensions
 const ALLOWED_FILE_TYPES = {
@@ -196,11 +197,34 @@ function validateFileType(filename: string, mimetype: string) {
 export const Media: CollectionConfig = {
   slug: 'media',
   access: {
-    read: isContent,
-    create: isContent,
+    // read: mediaReadAccess,
+    read: ({ req: { user } }) => {
+      if (!user || !user.role) return false
+      if (user.role === UserRoles.ADMIN || user.role === UserRoles.SUPER_ADMIN) {
+        return true
+      }
+      if (user.role === UserRoles.HR) {
+        return {
+          mimeType: {
+            equals: 'application/pdf',
+          },
+        }
+      }
+      if (user.role === UserRoles.CONTENT) {
+        return {
+          mimeType: {
+            in: Object.keys(ALLOWED_FILE_TYPES).filter((key) => key !== 'application/pdf'),
+          },
+        }
+      }
+      return false
+    },
+    create: () => true,
     update: isSuperAdminandAdmin,
     delete: isSuperAdminandAdmin,
   },
+  // Removed admin.defaultFilter due to type error
+
   fields: [
     {
       name: 'alt',
@@ -258,25 +282,32 @@ export const Media: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [
-      async ({ data, req }) => {
+      async ({ data, req, originalDoc }) => {
+        // Debug: log incoming body and data
+        console.log('beforeValidate - originalDoc:', originalDoc)
+        console.log('beforeValidate - req.body:', req.body)
+        console.log('beforeValidate - data:', data?.alt)
         // Create uploads directory if it doesn't exist
+        if (data) {
+          data.alt = data?.filename
+        }
         const uploadDir = './uploads'
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true })
         }
-
         return data
       },
     ],
     beforeChange: [
       async ({ data, req }) => {
+        // Debug: log file and data
+        // console.log('beforeChange - req.file:', req.file)
+        // console.log('beforeChange - data:', data)
         // Check file size (5MB = 5 * 1024 * 1024 bytes)
         const maxSize = 5 * 1024 * 1024
-
         if (req.file && req.file.size > maxSize) {
           throw new Error('File size must be less than 5MB')
         }
-
         // Validate file type and extension if file is present
         if (req.file) {
           try {
@@ -284,13 +315,11 @@ export const Media: CollectionConfig = {
           } catch (error: any) {
             throw new Error(error.message)
           }
-
           // If it's a PDF, perform security checks
           if (req.file.mimetype === 'application/pdf') {
             try {
               const fileBuffer = req.file.data
               const securityResult = await checkPDFSecurity(fileBuffer)
-
               if (!securityResult.success) {
                 // Block high-risk PDFs
                 data.securityStatus = 'blocked'
@@ -317,7 +346,6 @@ export const Media: CollectionConfig = {
             data.securityMessage = 'File type validated and approved'
           }
         }
-
         return data
       },
     ],

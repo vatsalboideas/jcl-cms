@@ -1,5 +1,6 @@
 import { isBusiness } from '@/access/isBusiness'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
+import { hasValidJWT } from '@/access/isLoggedIn'
 import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
 
@@ -7,7 +8,7 @@ export const ContactForms: CollectionConfig = {
   slug: 'contactforms',
   access: {
     read: isBusiness,
-    create: () => true,
+    create: () => true, // Allow all
     update: isSuperAdminandAdmin,
     delete: isSuperAdminandAdmin,
   },

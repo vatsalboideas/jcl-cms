@@ -16,11 +16,25 @@ import { InstaPosts } from './collections/InstaPosts'
 import { Showreel } from './collections/Showreel'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import nodemailer from 'nodemailer'
+// import { initCronJobs } from './cron'
+// import { cleanupOldEntries } from './jobs/cleanupOldEntries'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 export default buildConfig({
+  // jobs: {
+  //   tasks: [
+  //     {
+
+  //     }
+  //   ],
+  //   autoRun: [
+  //     {
+  //       cron: '55 16 * * *', // Run at 4:55 PM every day (16:55)
+  //     },
+  //   ],
+  // },
   admin: {
     user: Users.slug,
     importMap: {
@@ -56,4 +70,13 @@ export default buildConfig({
     payloadCloudPlugin(),
     // storage-adapter-placeholder
   ],
+  // onInit: async () => {
+  //   console.log('Payload CMS initialized, setting up cron jobs...')
+  //   try {
+  //     initCronJobs()
+  //     console.log('Cron jobs initialized successfully')
+  //   } catch (error) {
+  //     console.error('Failed to initialize cron jobs:', error)
+  //   }
+  // },
 })

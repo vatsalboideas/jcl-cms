@@ -1,12 +1,17 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
+import { jwtMiddleware } from '@/utils/jwtMiddleware'
 
 export const GET = async (request: Request) => {
-  const payload = await getPayload({
-    config: configPromise,
-  })
+  // Run JWT middleware
+  const user = await jwtMiddleware(request)
+
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+  }
 
   return Response.json({
-    message: 'This is an example of a custom route.',
+    message: 'Authenticated!',
+    user,
   })
 }
