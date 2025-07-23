@@ -14,8 +14,8 @@ import { ContactForms } from './collections/ContactForm'
 import { Works } from './collections/Work'
 import { InstaPosts } from './collections/InstaPosts'
 import { Showreel } from './collections/Showreel'
-import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
-import nodemailer from 'nodemailer'
+// import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
+// import nodemailer from 'nodemailer'
 // import { initCronJobs } from './cron'
 // import { cleanupOldEntries } from './jobs/cleanupOldEntries'
 
@@ -41,19 +41,19 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  email: nodemailerAdapter({
-    defaultFromAddress: 'vatsal.soni@boideas.com',
-    defaultFromName: 'JCL CMS',
-    // Nodemailer transportOptions
-    transport: nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: 587,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    }),
-  }),
+  // email: nodemailerAdapter({
+  //   defaultFromAddress: 'vatsal.soni@boideas.com',
+  //   defaultFromName: 'JCL CMS',
+  //   // Nodemailer transportOptions
+  //   transport: nodemailer.createTransport({
+  //     host: process.env.SMTP_HOST,
+  //     port: 587,
+  //     auth: {
+  //       user: process.env.SMTP_USER,
+  //       pass: process.env.SMTP_PASSWORD,
+  //     },
+  //   }),
+  // }),
   collections: [Users, Media, CareerForms, ContactForms, Works, InstaPosts, Showreel],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
