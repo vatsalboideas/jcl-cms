@@ -1,3 +1,4 @@
+import { importExportPlugin } from '@payloadcms/plugin-import-export'
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
@@ -66,8 +67,13 @@ export default buildConfig({
     },
   }),
   sharp,
+  cors: ['*'],
   plugins: [
     payloadCloudPlugin(),
+    importExportPlugin({
+      collections: ['contactforms', 'careerforms'],
+      format: 'csv',
+    }),
     // storage-adapter-placeholder
   ],
   // onInit: async () => {

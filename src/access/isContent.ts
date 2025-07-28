@@ -3,6 +3,7 @@ import { Access } from 'payload'
 
 export const isContent: Access = ({ req: { user } }) => {
   // Need to be logged in
+
   if (user) {
     // If user has role of 'admin'
     if (user.role?.includes(UserRoles.SUPER_ADMIN)) return true

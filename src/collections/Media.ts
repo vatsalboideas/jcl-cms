@@ -357,6 +357,15 @@ export const Media: CollectionConfig = {
           console.log(`Security Message: ${doc.securityMessage}`)
         }
       },
+      ({ operation, doc }: { operation: 'create' | 'update'; doc: any }) => {
+        if (operation === 'create') {
+          return {
+            status: 'success',
+            message: 'Your message has been submitted successfully',
+            id: doc.id,
+          }
+        }
+      },
     ],
   },
 }

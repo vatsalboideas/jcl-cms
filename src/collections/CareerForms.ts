@@ -61,6 +61,7 @@ import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
 import { hasValidJWT } from '@/access/isLoggedIn'
+import Decrypt from '@/utils/DataDecrypt'
 
 export const CareerForms: CollectionConfig = {
   slug: 'careerforms',
@@ -169,16 +170,39 @@ export const CareerForms: CollectionConfig = {
 
         // Sanitize text inputs
         if (data.firstName) {
-          data.firstName = data.firstName.trim()
+          // console.log('decrypt start - firstName')
+          data.firstName = Decrypt(data.firstName).trim()
+          // console.log('decrypt end - firstName')
         }
         if (data.lastName) {
-          data.lastName = data.lastName.trim()
+          // console.log('decrypt start - lastName')
+          data.lastName = Decrypt(data.lastName).trim()
+          // console.log('decrypt end - lastName')
         }
         if (data.message) {
-          data.message = data.message.trim()
+          // console.log('decrypt start - message')
+          data.message = Decrypt(data.message).trim()
+          // console.log('decrypt end - message')
         }
         if (data.emailId) {
-          data.emailId = data.emailId.trim().toLowerCase()
+          // console.log('decrypt start - emailId')
+          data.emailId = Decrypt(data.emailId).trim()
+          // console.log('decrypt end - emailId')
+        }
+        if (data.resume) {
+          // console.log('decrypt start - resume')
+          data.resume = Decrypt(data.resume).trim()
+          // console.log('decrypt end - resume')
+        }
+        if (data.contactNumber) {
+          // console.log('decrypt start - contactNumber')
+          data.contactNumber = Decrypt(data.contactNumber).trim()
+          // console.log('decrypt end - contactNumber')
+        }
+        if (data.portfolioLink) {
+          // console.log('decrypt start - portfolioLink')
+          data.portfolioLink = Decrypt(data.portfolioLink).trim()
+          // console.log('decrypt end - portfolioLink')
         }
 
         return data
@@ -214,6 +238,17 @@ export const CareerForms: CollectionConfig = {
         }
 
         return data
+      },
+    ],
+    afterChange: [
+      // Override the response after form submission
+      ({ operation }: { operation: 'create' | 'update' }) => {
+        if (operation === 'create') {
+          return {
+            status: 'success',
+            message: 'Your message has been submitted successfully',
+          }
+        }
       },
     ],
   },

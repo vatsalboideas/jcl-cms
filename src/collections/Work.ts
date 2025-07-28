@@ -1,3 +1,4 @@
+import { isApi } from '@/access/isApi'
 import { isContent } from '@/access/isContent'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import {
@@ -13,12 +14,17 @@ export const Works: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'clientType', 'workType', 'slug'],
   },
+  versions: {
+    drafts: true,
+  },
   access: {
-    read: isContent,
+    // read: () => true,
+    read: isApi,
     create: isContent,
-    update: isSuperAdminandAdmin,
+    update: isContent,
     delete: isSuperAdminandAdmin,
   },
+
   fields: [
     // Basic Information
     {

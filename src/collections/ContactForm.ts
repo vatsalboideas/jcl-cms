@@ -3,6 +3,7 @@ import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import { hasValidJWT } from '@/access/isLoggedIn'
 import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
+import Decrypt from '@/utils/DataDecrypt'
 
 export const ContactForms: CollectionConfig = {
   slug: 'contactforms',
@@ -12,6 +13,7 @@ export const ContactForms: CollectionConfig = {
     update: isSuperAdminandAdmin,
     delete: isSuperAdminandAdmin,
   },
+
   fields: [
     {
       name: 'firstName',
@@ -44,7 +46,24 @@ export const ContactForms: CollectionConfig = {
       hooks: encryptionHooks,
     },
     {
-      name: 'phoneNumber',
+      name: 'contactNumber',
+      type: 'text',
+      required: true,
+      validate: (value: string | null | undefined) => {
+        if (!value || typeof value !== 'string' || value.trim().length === 0) {
+          return 'Phone number is required'
+        }
+        // Basic phone number validation (adjust regex based on your requirements)
+        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
+        // if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
+        //   return 'Please enter a valid phone number'
+        // }
+        return true
+      },
+      hooks: encryptionHooks,
+    },
+    {
+      name: 'emailId',
       type: 'text',
       required: true,
       validate: (value: string | null | undefined) => {
@@ -97,31 +116,63 @@ export const ContactForms: CollectionConfig = {
       hooks: encryptionHooks,
     },
   ],
+  custom: {
+    'plugin-import-export': {
+      ToCSVFunction: ({ value, columnName, row }: any) => {
+        // add both `author_id` and the `author_email` to the csv export
+        if (value && typeof value === 'object' && 'id' in value && 'email' in value) {
+          row[`${columnName}_id`] = (value as { id: number | string }).id
+          row[`${columnName}_email`] = (value as { email: string }).email
+        }
+      },
+    },
+  },
   // Additional collection-level hooks for server-side validation
   hooks: {
     beforeValidate: [
       ({ data }: any) => {
-        // Additional server-side validation and sanitization
-        console.log('Before validate hook - data:', data)
+        try {
+          // Only decrypt if the field exists and is encrypted
+          if (data.firstName) {
+            data.firstName = Decrypt(data.firstName)
+          }
 
-        // Sanitize text inputs
-        if (data.firstName) {
-          data.firstName = data.firstName.trim()
-        }
-        if (data.lastName) {
-          data.lastName = data.lastName.trim()
-        }
-        if (data.phoneNumber) {
-          data.phoneNumber = data.phoneNumber.trim()
-        }
-        if (data.subject) {
-          data.subject = data.subject.trim()
-        }
-        if (data.message) {
-          data.message = data.message.trim()
+          if (data.lastName) {
+            data.lastName = Decrypt(data.lastName)
+          }
+
+          if (data.contactNumber) {
+            data.contactNumber = Decrypt(data.contactNumber)
+          }
+
+          if (data.emailId) {
+            data.emailId = Decrypt(data.emailId)
+          }
+
+          if (data.subject) {
+            data.subject = Decrypt(data.subject)
+          }
+
+          if (data.message) {
+            data.message = Decrypt(data.message)
+          }
+        } catch (error) {
+          console.error('Decryption error:', error)
+          throw new Error('Failed to process encrypted data')
         }
 
         return data
+      },
+    ],
+    afterChange: [
+      // Override the response after form submission
+      ({ operation }: { operation: 'create' | 'update' }) => {
+        if (operation === 'create') {
+          return {
+            status: 'success',
+            message: 'Your message has been submitted successfully',
+          }
+        }
       },
     ],
   },
