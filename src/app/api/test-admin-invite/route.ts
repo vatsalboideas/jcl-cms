@@ -6,42 +6,42 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await getPayload()
     const body = await request.json()
-    const { to, subject = 'Test Email from JCL CMS' } = body
+    const { email } = body
 
-    if (!to) {
+    if (!email) {
       return NextResponse.json({ error: 'Email address is required' }, { status: 400 })
     }
 
-    console.log(`📧 Testing email functionality - sending to: ${to}`)
+    console.log(`📧 Testing admin invite email functionality for: ${email}`)
 
     // Use shared email templates
-    const { html, text } = emailTemplates.testEmail(to)
+    const { html, text } = emailTemplates.testEmail(email)
 
-    // Test Payload's email service
+    // Test the email sending directly
     await payload.sendEmail({
-      to,
-      subject,
+      to: email,
+      subject: 'Test Admin Invitation - JCL CMS',
       html,
       text,
     })
 
-    console.log(`✅ Test email sent successfully to: ${to}`)
+    console.log(`✅ Test admin invite email sent successfully to: ${email}`)
 
     return NextResponse.json({
       success: true,
-      message: `Test email sent successfully to ${to}`,
+      message: `Test admin invite email sent successfully to ${email}`,
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error('❌ Failed to send test email:', {
+    console.error('❌ Failed to send test admin invite email:', {
       error: error.message,
+      stack: error.stack,
       code: error.code,
-      command: error.command,
     })
 
     return NextResponse.json(
       {
-        error: 'Failed to send test email',
+        error: 'Failed to send test admin invite email',
         details: error.message,
         code: error.code,
       },
@@ -52,13 +52,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({
-    message: 'Email test endpoint',
-    usage: 'POST with { "to": "email@example.com" }',
-    smtpConfig: {
-      host: process.env.SMTP_HOST || 'Not configured',
-      port: process.env.SMTP_PORT || 'Not configured',
-      from: process.env.SMTP_FROM || 'Not configured',
-      user: process.env.SMTP_USER || 'Not configured',
-    },
+    message: 'Test admin invite email endpoint',
+    usage: 'POST with { "email": "test@example.com" }',
   })
 }

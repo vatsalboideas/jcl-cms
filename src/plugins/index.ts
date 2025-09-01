@@ -9,10 +9,10 @@ export const plugins: Plugin[] = [
     disableDefaultPayloadAuth: true,
     hidePluginCollections: true,
     users: {
-      allowedFields: ['name'],
+      allowedFields: ['name', 'role', 'emailVerified'],
       defaultRole: 'user',
       defaultAdminRole: 'admin',
-      roles: ['business', 'hr', 'content', 'user'],
+      roles: ['business', 'hr', 'content', 'user', 'admin'],
     },
     accounts: {
       slug: 'userAccounts',
@@ -25,13 +25,18 @@ export const plugins: Plugin[] = [
     },
 
     betterAuthOptions: {
-      emailVerification: {},
-      appName: 'myapp',
+      emailVerification: {
+        sendOnSignUp: true, // Enable email verification
+        autoSignInAfterVerification: true,
+      },
+      appName: 'JCL CMS',
       baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
       trustedOrigins: [process.env.NEXT_PUBLIC_SERVER_URL!],
       emailAndPassword: {
         enabled: true,
+        requireEmailVerification: true, // Enable email verification
       },
+
       socialProviders: {
         // google: {
         //   clientId: process.env.GOOGLE_CLIENT_ID as string,

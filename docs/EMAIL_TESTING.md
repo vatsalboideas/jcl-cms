@@ -20,6 +20,16 @@ curl -X POST http://localhost:3000/api/test-email \
 curl http://localhost:3000/api/test-email
 ```
 
+### 3. Test Admin Invite Email
+
+```bash
+# Test admin invite functionality (requires admin access)
+curl -X POST http://localhost:3000/api/users/send-invite \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -d '{"email": "newadmin@example.com", "role": "admin"}'
+```
+
 ## Expected Logs
 
 When emails are sent successfully, you should see logs like:
@@ -110,3 +120,27 @@ npm run dev
 # ✅ Verification email sent successfully to: user@example.com
 # ❌ Failed to send verification email to user@example.com: error message
 ```
+##
+ Recent Fixes Applied
+
+### Issues Fixed:
+1. **Missing serverURL**: Added `serverURL` to payload.config.ts to fix admin invite URL generation
+2. **Admin invite email function**: Added custom `sendInviteEmail` function to better-auth admin plugin
+3. **Email verification**: Added custom `sendEmailVerification` function for user registration
+4. **Password reset**: Added custom `sendPasswordResetEmail` function for password recovery
+5. **Better-auth email transport**: Configured proper email transport for better-auth plugin
+
+### What Should Work Now:
+- ✅ Admin invite emails with proper URLs
+- ✅ Email verification for new user signups
+- ✅ Password reset emails
+- ✅ 2FA notification emails
+- ✅ Test email API endpoint
+
+### Email Types Sent:
+1. **Admin Invitations**: When inviting new admin users
+2. **Email Verification**: When users sign up with email/password
+3. **Password Reset**: When users request password reset
+4. **2FA Notifications**: When 2FA is enabled/disabled
+
+All emails now use professional HTML templates with JCL CMS branding and include both HTML and plain text versions.

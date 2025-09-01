@@ -71,7 +71,6 @@ export interface Config {
     userSessions: UserSession;
     userAccounts: UserAccount;
     verifications: Verification;
-    twoFactors: TwoFactor;
     'admin-invitations': AdminInvitation;
     media: Media;
     careerforms: Careerform;
@@ -91,7 +90,6 @@ export interface Config {
     userSessions: UserSessionsSelect<false> | UserSessionsSelect<true>;
     userAccounts: UserAccountsSelect<false> | UserAccountsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    twoFactors: TwoFactorsSelect<false> | TwoFactorsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     careerforms: CareerformsSelect<false> | CareerformsSelect<true>;
@@ -168,13 +166,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   /**
-   * Whether the user has two factor authentication enabled
-   */
-  twoFactorEnabled?: boolean | null;
-  /**
    * The role of the user
    */
-  role?: ('admin' | 'superAdmin' | 'business' | 'hr' | 'content' | 'user') | null;
+  role?: ('admin' | 'business' | 'hr' | 'content' | 'user') | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -187,10 +181,6 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  twoFactorSecret?: string | null;
-  twoFactorBackupCodes?: string | null;
 }
 /**
  * Sessions are active sessions for users. They are used to authenticate users with a session token
@@ -302,35 +292,12 @@ export interface Verification {
   updatedAt: string;
 }
 /**
- * Two factor authentication secrets
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "twoFactors".
- */
-export interface TwoFactor {
-  id: number;
-  /**
-   * The secret used to generate the TOTP code.
-   */
-  secret: string;
-  /**
-   * The backup codes used to recover access to the account if the user loses access to their phone or email
-   */
-  backupCodes: string;
-  /**
-   * The user that the two factor authentication secret belongs to
-   */
-  user: number | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admin-invitations".
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'superAdmin' | 'business' | 'hr' | 'content' | 'user';
+  role: 'admin' | 'business' | 'hr' | 'content' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -662,10 +629,6 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'twoFactors';
-        value: number | TwoFactor;
-      } | null)
-    | ({
         relationTo: 'admin-invitations';
         value: number | AdminInvitation;
       } | null)
@@ -754,15 +717,10 @@ export interface UsersSelect<T extends boolean = true> {
   image?: T;
   createdAt?: T;
   updatedAt?: T;
-  twoFactorEnabled?: T;
   role?: T;
   banned?: T;
   banReason?: T;
   banExpires?: T;
-  firstName?: T;
-  lastName?: T;
-  twoFactorSecret?: T;
-  twoFactorBackupCodes?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -806,17 +764,6 @@ export interface VerificationsSelect<T extends boolean = true> {
   expiresAt?: T;
   createdAt?: T;
   updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "twoFactors_select".
- */
-export interface TwoFactorsSelect<T extends boolean = true> {
-  secret?: T;
-  backupCodes?: T;
-  user?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
