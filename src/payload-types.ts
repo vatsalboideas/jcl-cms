@@ -68,6 +68,11 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
+    userSessions: UserSession;
+    userAccounts: UserAccount;
+    verifications: Verification;
+    twoFactors: TwoFactor;
+    'admin-invitations': AdminInvitation;
     media: Media;
     careerforms: Careerform;
     contactforms: Contactform;
@@ -83,6 +88,11 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
+    userSessions: UserSessionsSelect<false> | UserSessionsSelect<true>;
+    userAccounts: UserAccountsSelect<false> | UserAccountsSelect<true>;
+    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
+    twoFactors: TwoFactorsSelect<false> | TwoFactorsSelect<true>;
+    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     careerforms: CareerformsSelect<false> | CareerformsSelect<true>;
     contactforms: ContactformsSelect<false> | ContactformsSelect<true>;
@@ -139,26 +149,192 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
-  firstName: string;
-  lastName: string;
-  role?: ('superAdmin' | 'admin' | 'business' | 'hr' | 'content' | 'user') | null;
+  /**
+   * Users chosen display name
+   */
+  name: string;
+  /**
+   * The email of the user
+   */
+  email: string;
+  /**
+   * Whether the email of the user has been verified
+   */
+  emailVerified: boolean;
+  /**
+   * The image of the user
+   */
+  image?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * Whether the user has two factor authentication enabled
+   */
+  twoFactorEnabled?: boolean | null;
+  /**
+   * The role of the user
+   */
+  role?: ('admin' | 'superAdmin' | 'business' | 'hr' | 'content' | 'user') | null;
+  /**
+   * Whether the user is banned from the platform
+   */
+  banned?: boolean | null;
+  /**
+   * The reason for the ban
+   */
+  banReason?: string | null;
+  /**
+   * The date and time when the ban will expire
+   */
+  banExpires?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  twoFactorSecret?: string | null;
+  twoFactorBackupCodes?: string | null;
+}
+/**
+ * Sessions are active sessions for users. They are used to authenticate users with a session token
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "userSessions".
+ */
+export interface UserSession {
+  id: number;
+  /**
+   * The date and time when the session will expire
+   */
+  expiresAt: string;
+  /**
+   * The unique session token
+   */
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The IP address of the device
+   */
+  ipAddress?: string | null;
+  /**
+   * The user agent information of the device
+   */
+  userAgent?: string | null;
+  /**
+   * The user that the session belongs to
+   */
+  user: number | User;
+  /**
+   * The admin who is impersonating this session
+   */
+  impersonatedBy?: (number | null) | User;
+}
+/**
+ * Accounts are used to store user accounts for authentication providers
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "userAccounts".
+ */
+export interface UserAccount {
+  id: number;
+  /**
+   * The id of the account as provided by the SSO or equal to userId for credential accounts
+   */
+  accountId: string;
+  /**
+   * The id of the provider as provided by the SSO
+   */
+  providerId: string;
+  /**
+   * The user that the account belongs to
+   */
+  user: number | User;
+  /**
+   * The access token of the account. Returned by the provider
+   */
+  accessToken?: string | null;
+  /**
+   * The refresh token of the account. Returned by the provider
+   */
+  refreshToken?: string | null;
+  /**
+   * The id token for the account. Returned by the provider
+   */
+  idToken?: string | null;
+  /**
+   * The date and time when the access token will expire
+   */
+  accessTokenExpiresAt?: string | null;
+  /**
+   * The date and time when the refresh token will expire
+   */
+  refreshTokenExpiresAt?: string | null;
+  /**
+   * The scope of the account. Returned by the provider
+   */
+  scope?: string | null;
+  /**
+   * The hashed password of the account. Mainly used for email and password authentication
+   */
+  password?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
+ * Two factor authentication secrets
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "twoFactors".
+ */
+export interface TwoFactor {
+  id: number;
+  /**
+   * The secret used to generate the TOTP code.
+   */
+  secret: string;
+  /**
+   * The backup codes used to recover access to the account if the user loses access to their phone or email
+   */
+  backupCodes: string;
+  /**
+   * The user that the two factor authentication secret belongs to
+   */
+  user: number | User;
   updatedAt: string;
   createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations".
+ */
+export interface AdminInvitation {
+  id: number;
+  role: 'admin' | 'superAdmin' | 'business' | 'hr' | 'content' | 'user';
+  token: string;
+  url?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -474,6 +650,26 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'userSessions';
+        value: number | UserSession;
+      } | null)
+    | ({
+        relationTo: 'userAccounts';
+        value: number | UserAccount;
+      } | null)
+    | ({
+        relationTo: 'verifications';
+        value: number | Verification;
+      } | null)
+    | ({
+        relationTo: 'twoFactors';
+        value: number | TwoFactor;
+      } | null)
+    | ({
+        relationTo: 'admin-invitations';
+        value: number | AdminInvitation;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -552,25 +748,86 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  twoFactorEnabled?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
   firstName?: T;
   lastName?: T;
-  role?: T;
+  twoFactorSecret?: T;
+  twoFactorBackupCodes?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "userSessions_select".
+ */
+export interface UserSessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "userAccounts_select".
+ */
+export interface UserAccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications_select".
+ */
+export interface VerificationsSelect<T extends boolean = true> {
+  identifier?: T;
+  value?: T;
+  expiresAt?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "twoFactors_select".
+ */
+export interface TwoFactorsSelect<T extends boolean = true> {
+  secret?: T;
+  backupCodes?: T;
+  user?: T;
   updatedAt?: T;
   createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
