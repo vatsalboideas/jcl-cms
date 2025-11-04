@@ -112,15 +112,13 @@ export const Users: CollectionConfig = {
       label: 'Two-Factor Authentication Enabled',
       defaultValue: true,
       access: {
-        create: ({ req: { user } }) => {
-          return user?.role === UserRoles.SUPER_ADMIN
-        },
-        update: ({ req: { user } }) => {
-          return user?.role === UserRoles.SUPER_ADMIN
-        },
+        create: () => false,
+        update: () => false,
+        read: () => false,
       },
       admin: {
         description: 'Enable two-factor authentication for this user',
+        hidden: true,
       },
     },
     {
@@ -129,13 +127,12 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description: 'Secret key for 2FA (auto-generated)',
+        hidden: true,
       },
       access: {
-        read: () => {
-          // Only the user themselves can read their own 2FA secret
-          return true // Allow read for now, will be restricted by admin readOnly
-        },
+        read: () => false,
         update: () => false, // No one can update this directly
+        create: () => false,
       },
     },
     {
@@ -144,6 +141,7 @@ export const Users: CollectionConfig = {
       admin: {
         description: 'Backup codes for 2FA recovery',
         readOnly: true,
+        hidden: true,
       },
       fields: [
         {
@@ -157,11 +155,9 @@ export const Users: CollectionConfig = {
         },
       ],
       access: {
-        read: () => {
-          // Only the user themselves can read their backup codes
-          return true // Allow read for now, will be restricted by admin readOnly
-        },
+        read: () => false,
         update: () => false, // No one can update this directly
+        create: () => false,
       },
     },
     {
@@ -171,6 +167,12 @@ export const Users: CollectionConfig = {
       admin: {
         description: 'Whether 2FA has been verified',
         readOnly: true,
+        hidden: true,
+      },
+      access: {
+        read: () => false,
+        update: () => false,
+        create: () => false,
       },
     },
     {
@@ -179,13 +181,12 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description: 'Temporary OTP code for login',
+        hidden: true,
       },
       access: {
-        read: () => {
-          // Only the user themselves can read their OTP
-          return true // Allow read for now, will be restricted by admin readOnly
-        },
+        read: () => false,
         update: () => false, // No one can update this directly
+        create: () => false,
       },
     },
     {
@@ -194,13 +195,12 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description: 'OTP expiration time',
+        hidden: true,
       },
       access: {
-        read: () => {
-          // Only the user themselves can read their OTP expiration
-          return true // Allow read for now, will be restricted by admin readOnly
-        },
+        read: () => false,
         update: () => false, // No one can update this directly
+        create: () => false,
       },
     },
     {
@@ -209,12 +209,12 @@ export const Users: CollectionConfig = {
       admin: {
         readOnly: true,
         description: 'Temporarily holds JWT after password validation until OTP is verified',
+        hidden: true,
       },
       access: {
-        read: () => {
-          return true
-        },
+        read: () => false,
         update: () => false,
+        create: () => false,
       },
     },
   ],

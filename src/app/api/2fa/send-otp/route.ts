@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       id: user.id,
       data: {
         otpCode: otp,
-        otpExpiresAt: String(expiresAt),
+        otpExpiresAt: expiresAt.toISOString(),
       },
     })
 
