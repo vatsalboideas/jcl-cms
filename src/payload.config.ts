@@ -7,6 +7,8 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
+import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
+import nodemailer from 'nodemailer'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
@@ -15,13 +17,19 @@ import { ContactForms } from './collections/ContactForm'
 import { Works } from './collections/Work'
 import { InstaPosts } from './collections/InstaPosts'
 import { Showreel } from './collections/Showreel'
-// import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
-// import nodemailer from 'nodemailer'
 // import { initCronJobs } from './cron'
 // import { cleanupOldEntries } from './jobs/cleanupOldEntries'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+// Centralize SMTP configuration
+const smtpHost = process.env.SMTP_HOST || 'smtp-relay.brevo.com'
+const smtpPort = parseInt(process.env.SMTP_PORT || '587')
+const smtpSecure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : smtpPort === 465
+const smtpUser = process.env.SMTP_USER
+const smtpPass = process.env.SMTP_PASSWORD
+const smtpFrom = process.env.SMTP_FROM || smtpUser || ''
 
 export default buildConfig({
   // jobs: {
@@ -41,20 +49,41 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    routes: {
+      login: '/auth/login',
+    },
+    components: {
+      views: {
+        login: {
+          Component: './views/Login',
+          path: '/auth/login',
+        },
+        resetPassword: {
+          Component: './views/Login/ResetPassword',
+          path: '/auth/reset-password',
+        },
+      },
+    },
+    // components: {
+    //   views: {
+    //     login: {
+    //       Component: '',
+    //       path: '',
+    //     },
+    //   },
+    // },
   },
-  // email: nodemailerAdapter({
-  //   defaultFromAddress: 'vatsal.soni@boideas.com',
-  //   defaultFromName: 'JCL CMS',
-  //   // Nodemailer transportOptions
-  //   transport: nodemailer.createTransport({
-  //     host: process.env.SMTP_HOST,
-  //     port: 587,
-  //     auth: {
-  //       user: process.env.SMTP_USER,
-  //       pass: process.env.SMTP_PASSWORD,
-  //     },
-  //   }),
-  // }),
+  email: nodemailerAdapter({
+    defaultFromAddress: smtpFrom,
+    defaultFromName: 'JCL CMS',
+    // Brevo SMTP Configuration
+    transport: nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+    }),
+  }),
   collections: [Users, Media, CareerForms, ContactForms, Works, InstaPosts, Showreel],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
@@ -76,13 +105,29 @@ export default buildConfig({
     }),
     // storage-adapter-placeholder
   ],
-  // onInit: async () => {
-  //   console.log('Payload CMS initialized, setting up cron jobs...')
-  //   try {
-  //     initCronJobs()
-  //     console.log('Cron jobs initialized successfully')
-  //   } catch (error) {
-  //     console.error('Failed to initialize cron jobs:', error)
-  //   }
-  // },
+  onInit: async () => {
+    // Proactive SMTP verification for clearer startup diagnostics
+    try {
+      if (!smtpUser || !smtpPass) {
+        console.warn('[Email] SMTP_USER/SMTP_PASSWORD not set. Emails will fail until configured.')
+      }
+      if (!smtpFrom) {
+        console.warn(
+          '[Email] No SMTP_FROM provided. Using SMTP_USER as from address. Ensure it is a verified sender.',
+        )
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+      })
+
+      await transporter.verify()
+      console.log(`[Email] SMTP verified: host=${smtpHost} port=${smtpPort} secure=${smtpSecure}`)
+    } catch (err) {
+      console.error('[Email] SMTP verification failed:', err)
+    }
+  },
 })

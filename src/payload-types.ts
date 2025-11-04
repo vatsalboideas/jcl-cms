@@ -142,6 +142,40 @@ export interface User {
   firstName: string;
   lastName: string;
   role?: ('superAdmin' | 'admin' | 'business' | 'hr' | 'content' | 'user') | null;
+  /**
+   * Enable two-factor authentication for this user
+   */
+  twoFactorEnabled?: boolean | null;
+  /**
+   * Secret key for 2FA (auto-generated)
+   */
+  twoFactorSecret?: string | null;
+  /**
+   * Backup codes for 2FA recovery
+   */
+  twoFactorBackupCodes?:
+    | {
+        code?: string | null;
+        used?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Whether 2FA has been verified
+   */
+  twoFactorVerified?: boolean | null;
+  /**
+   * Temporary OTP code for login
+   */
+  otpCode?: string | null;
+  /**
+   * OTP expiration time
+   */
+  otpExpiresAt?: string | null;
+  /**
+   * Temporarily holds JWT after password validation until OTP is verified
+   */
+  pendingLoginToken?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -555,6 +589,19 @@ export interface UsersSelect<T extends boolean = true> {
   firstName?: T;
   lastName?: T;
   role?: T;
+  twoFactorEnabled?: T;
+  twoFactorSecret?: T;
+  twoFactorBackupCodes?:
+    | T
+    | {
+        code?: T;
+        used?: T;
+        id?: T;
+      };
+  twoFactorVerified?: T;
+  otpCode?: T;
+  otpExpiresAt?: T;
+  pendingLoginToken?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

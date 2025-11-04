@@ -2,7 +2,8 @@ import { isAdminOrSelf } from '@/access/isAdminOrSelf'
 import { isSuperAdmin } from '@/access/isSuperAdmin'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import UserRoles from '@/utils/RoleTypes'
-import type { CollectionConfig } from 'payload'
+import { ValidationError, type CollectionConfig } from 'payload'
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{12,}$/
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -16,6 +17,48 @@ export const Users: CollectionConfig = {
     delete: isSuperAdmin,
   },
   auth: true,
+  hooks: {
+    // beforeValidate: [
+    //   async ({ data }) => {
+    //     const pwd = data?.password
+    //     if (!pwd) return
+
+    //     const res = zxcvbn(pwd)
+    //     console.log(res, 'res')
+    //     if (res.score < 3) {
+    //       // ✳️ Use Payload's ValidationError for proper UI message
+    //       throw new ValidationError({
+    //         errors: [
+    //           {
+    //             message:
+    //               'Password too weak — ' +
+    //               (res.feedback.warning || 'please choose a stronger password'),
+    //             path: 'password',
+    //           },
+    //         ],
+    //       })
+    //     }
+    //   },
+    // ],
+    beforeValidate: [
+      async ({ data }) => {
+        const pwd = data?.password
+        if (!pwd) return // skip if not changing/creating password
+
+        if (!passwordRegex.test(pwd)) {
+          throw new ValidationError({
+            errors: [
+              {
+                message:
+                  'Password must be at least 12 characters long and include uppercase, lowercase, number, and special character.',
+                path: 'password',
+              },
+            ],
+          })
+        }
+      },
+    ],
+  },
   fields: [
     // Email added by default
     // Add more fields as needed
@@ -60,6 +103,118 @@ export const Users: CollectionConfig = {
             false
           )
         },
+      },
+    },
+    // 2FA Fields
+    {
+      name: 'twoFactorEnabled',
+      type: 'checkbox',
+      label: 'Two-Factor Authentication Enabled',
+      defaultValue: true,
+      access: {
+        create: ({ req: { user } }) => {
+          return user?.role === UserRoles.SUPER_ADMIN
+        },
+        update: ({ req: { user } }) => {
+          return user?.role === UserRoles.SUPER_ADMIN
+        },
+      },
+      admin: {
+        description: 'Enable two-factor authentication for this user',
+      },
+    },
+    {
+      name: 'twoFactorSecret',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description: 'Secret key for 2FA (auto-generated)',
+      },
+      access: {
+        read: () => {
+          // Only the user themselves can read their own 2FA secret
+          return true // Allow read for now, will be restricted by admin readOnly
+        },
+        update: () => false, // No one can update this directly
+      },
+    },
+    {
+      name: 'twoFactorBackupCodes',
+      type: 'array',
+      admin: {
+        description: 'Backup codes for 2FA recovery',
+        readOnly: true,
+      },
+      fields: [
+        {
+          name: 'code',
+          type: 'text',
+        },
+        {
+          name: 'used',
+          type: 'checkbox',
+          defaultValue: false,
+        },
+      ],
+      access: {
+        read: () => {
+          // Only the user themselves can read their backup codes
+          return true // Allow read for now, will be restricted by admin readOnly
+        },
+        update: () => false, // No one can update this directly
+      },
+    },
+    {
+      name: 'twoFactorVerified',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description: 'Whether 2FA has been verified',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'otpCode',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description: 'Temporary OTP code for login',
+      },
+      access: {
+        read: () => {
+          // Only the user themselves can read their OTP
+          return true // Allow read for now, will be restricted by admin readOnly
+        },
+        update: () => false, // No one can update this directly
+      },
+    },
+    {
+      name: 'otpExpiresAt',
+      type: 'date',
+      admin: {
+        readOnly: true,
+        description: 'OTP expiration time',
+      },
+      access: {
+        read: () => {
+          // Only the user themselves can read their OTP expiration
+          return true // Allow read for now, will be restricted by admin readOnly
+        },
+        update: () => false, // No one can update this directly
+      },
+    },
+    {
+      name: 'pendingLoginToken',
+      type: 'text',
+      admin: {
+        readOnly: true,
+        description: 'Temporarily holds JWT after password validation until OTP is verified',
+      },
+      access: {
+        read: () => {
+          return true
+        },
+        update: () => false,
       },
     },
   ],

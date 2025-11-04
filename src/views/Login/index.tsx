@@ -1,0 +1,211 @@
+'use client'
+import type { AdminViewProps } from 'payload'
+import React, { Fragment, useCallback, useState } from 'react'
+import styles from './styles.module.css'
+import Link from 'next/link'
+
+const LoginView: React.FC<AdminViewProps> = () => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [requires2FA, setRequires2FA] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
+
+  const handleLogin = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || 'Login failed')
+
+      if (data?.requires2FA) {
+        setRequires2FA(true)
+        // send OTP immediately
+        const sendRes = await fetch('/api/2fa/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+        const sendData = await sendRes.json()
+        if (!sendRes.ok) throw new Error(sendData?.message || 'Failed to send OTP')
+        setInfo('Verification code sent to your email')
+      } else {
+        // Non-2FA path: token cookie is already set by Payload default login when used directly,
+        // but here we received token via API. Redirect to admin.
+        window.location.href = '/admin'
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }, [email, password])
+
+  const handleVerify = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/2fa/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || 'Invalid code')
+
+      // Cookie is set by server; redirect to admin
+      window.location.href = '/admin'
+    } catch (e: any) {
+      setError(e?.message || 'Verification failed')
+    } finally {
+      setLoading(false)
+    }
+  }, [email, otp])
+
+  const handleResend = useCallback(async () => {
+    if (!email || resendCooldown > 0) return
+    setResendLoading(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const res = await fetch('/api/2fa/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.message || 'Failed to resend code')
+      setInfo('New verification code sent to your email')
+      setResendCooldown(30)
+      const interval = setInterval(() => {
+        setResendCooldown((t) => {
+          if (t <= 1) {
+            clearInterval(interval)
+            return 0
+          }
+          return t - 1
+        })
+      }, 1000)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to resend code')
+    } finally {
+      setResendLoading(false)
+    }
+  }, [email, resendCooldown])
+
+  return (
+    <div className={styles.screen}>
+      <div className={styles.cardWrapper}>
+        {!requires2FA ? (
+          <form
+            className={styles.card}
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleLogin()
+            }}
+          >
+            <h1 className={styles.title}>Sign in</h1>
+
+            <label htmlFor="email" className={styles.label}>
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={styles.input}
+              placeholder="you@example.com"
+              autoComplete="username"
+            />
+
+            <label htmlFor="password" className={styles.label}>
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className={styles.input}
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+
+            {error && <div className={styles.error}>{error}</div>}
+
+            <button type="submit" disabled={loading} className={styles.button}>
+              {loading ? 'Please wait…' : 'Login'}
+            </button>
+
+            <div className={styles.helperRow}>
+              <Link className={styles.link} href="/admin/forgot">
+                Forgot your password?
+              </Link>
+            </div>
+          </form>
+        ) : (
+          <form
+            className={styles.card}
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleVerify()
+            }}
+          >
+            <h1 className={styles.title}>Verify code</h1>
+
+            <label htmlFor="otp" className={styles.label}>
+              Verification Code
+            </label>
+            <input
+              id="otp"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              required
+              className={styles.input}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Enter 6-digit code"
+              autoComplete="one-time-code"
+            />
+            {info && <div className={styles.info}>{info}</div>}
+            {error && <div className={styles.error}>{error}</div>}
+            <button type="submit" disabled={loading} className={styles.button}>
+              {loading ? 'Verifying…' : 'Verify & Continue'}
+            </button>
+
+            <div className={styles.helperRow}>
+              <span className={styles.muted}>Didn&apos;t get the code?</span>
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={handleResend}
+                disabled={resendLoading || resendCooldown > 0}
+              >
+                {resendLoading
+                  ? 'Resending…'
+                  : resendCooldown > 0
+                    ? `Resend in ${resendCooldown}s`
+                    : 'Resend'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default LoginView
