@@ -139,20 +139,21 @@ export async function POST(req: NextRequest) {
         hasPassword: Boolean(process.env.SMTP_PASSWORD),
       })
 
-      // Clean up the OTP if email fails
-      await payloadClient.update({
-        collection: 'users',
-        id: user.id,
+      // OTP is still saved in DB and can be used for verification
+      // Email failure doesn't prevent OTP validation
+      console.warn(
+        `[2FA] Email failed for ${user.email}, but OTP ${otp} is still valid and saved in database`,
+      )
+
+      return NextResponse.json({
+        success: true,
+        message:
+          'OTP generated successfully. Email delivery failed, but OTP is still valid for verification.',
         data: {
-          otpCode: null,
-          otpExpiresAt: null,
+          expiresAt,
+          emailSent: false,
         },
       })
-
-      return NextResponse.json(
-        { success: false, message: 'Failed to send OTP email' },
-        { status: 500 },
-      )
     }
   } catch (error) {
     console.error('Send OTP error:', error)
