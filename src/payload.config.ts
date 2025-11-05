@@ -31,7 +31,15 @@ const smtpUser = process.env.SMTP_USER
 const smtpPass = process.env.SMTP_PASSWORD
 const smtpFrom = process.env.SMTP_FROM || smtpUser || ''
 
+// Server URL for generating absolute URLs (password reset, email verification, etc.)
+const serverURL =
+  process.env.PAYLOAD_PUBLIC_SERVER_URL ||
+  process.env.NEXT_PUBLIC_SERVER_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  'http://localhost:3000'
+
 export default buildConfig({
+  serverURL,
   // jobs: {
   //   tasks: [
   //     {

@@ -59,15 +59,32 @@ const LoginView: React.FC<AdminViewProps> = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
+        credentials: 'include', // Ensure cookies are sent and received
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.message || 'Invalid code')
 
-      // Cookie is set by server; redirect to admin
-      window.location.href = '/admin'
+      // Check if cookie was set (via response header)
+      const authSet = res.headers.get('X-Auth-Set')
+      console.log(
+        '[Login] OTP verified, auth set:',
+        authSet,
+        'Token:',
+        data?.data?.token ? 'present' : 'missing',
+      )
+
+      // Small delay to ensure cookie is set before redirect
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      // Use full URL for redirect to ensure proper navigation
+      const adminUrl = window.location.origin + '/admin'
+      console.log('[Login] Redirecting to:', adminUrl)
+
+      // Force a hard redirect to ensure cookie is read
+      window.location.href = adminUrl
     } catch (e: any) {
+      console.error('[Login] OTP verification error:', e)
       setError(e?.message || 'Verification failed')
-    } finally {
       setLoading(false)
     }
   }, [email, otp])

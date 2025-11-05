@@ -104,45 +104,63 @@ export async function POST(req: NextRequest) {
 
     const tokenToReturn = updated.pendingLoginToken || user.pendingLoginToken
 
-    if (tokenToReturn) {
-      // Clear pendingLoginToken after use
-      await payloadClient.update({
-        collection: 'users',
-        id: user.id,
-        data: {
-          pendingLoginToken: null,
-        },
-      })
-      // Set admin auth cookie so Payload Admin logs in
-      const isSecure = process.env.NODE_ENV === 'production'
-      const response = NextResponse.json({
-        success: true,
-        message: 'OTP verified successfully',
-        data: {
-          token: tokenToReturn,
-          user: {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role,
-          },
-        },
-      })
-      response.cookies.set('payload-token', tokenToReturn, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isSecure,
-        path: '/',
-      })
-      return response
+    if (!tokenToReturn) {
+      console.error('[OTP Verify] No pending login token found for user:', user.email, user.id)
+      return NextResponse.json(
+        { success: false, message: 'No pending login session found. Please login again.' },
+        { status: 400 },
+      )
     }
 
-    return NextResponse.json({
+    // Clear pendingLoginToken after use
+    await payloadClient.update({
+      collection: 'users',
+      id: user.id,
+      data: {
+        pendingLoginToken: null,
+      },
+    })
+
+    // Set admin auth cookie so Payload Admin logs in
+    const isProduction = process.env.NODE_ENV === 'production'
+    const isSecure = isProduction
+
+    // Get domain from environment or request origin
+    const origin = req.headers.get('origin') || req.headers.get('referer') || ''
+    let cookieDomain: string | undefined = undefined
+
+    // In production, extract domain from origin if available
+    if (isProduction && origin) {
+      try {
+        const url = new URL(origin)
+        // Only set domain if it's not localhost (for production domains)
+        if (!url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+          // Extract root domain (e.g., example.com from app.example.com)
+          const hostnameParts = url.hostname.split('.')
+          if (hostnameParts.length >= 2) {
+            cookieDomain = '.' + hostnameParts.slice(-2).join('.')
+          }
+        }
+      } catch (e) {
+        console.warn('[OTP Verify] Could not parse origin for cookie domain:', e)
+      }
+    }
+
+    // Log cookie settings for debugging
+    console.log('[OTP Verify] Setting cookie:', {
+      secure: isSecure,
+      sameSite: 'lax',
+      domain: cookieDomain || 'not set',
+      path: '/',
+      hasToken: !!tokenToReturn,
+      tokenLength: tokenToReturn?.length,
+    })
+
+    const response = NextResponse.json({
       success: true,
       message: 'OTP verified successfully',
       data: {
-        token: tokenToReturn || null,
+        token: tokenToReturn,
         user: {
           id: user.id,
           email: user.email,
@@ -152,6 +170,36 @@ export async function POST(req: NextRequest) {
         },
       },
     })
+
+    // Set cookie with proper expiration (30 days)
+    interface CookieOptions {
+      httpOnly: boolean
+      sameSite: 'lax' | 'strict' | 'none'
+      secure: boolean
+      path: string
+      maxAge: number
+      domain?: string
+    }
+
+    const cookieOptions: CookieOptions = {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isSecure,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    }
+
+    // Only set domain in production if we have a valid domain
+    if (cookieDomain) {
+      cookieOptions.domain = cookieDomain
+    }
+
+    response.cookies.set('payload-token', tokenToReturn, cookieOptions)
+
+    // Also set a response header to help with debugging
+    response.headers.set('X-Auth-Set', 'true')
+
+    return response
   } catch (error) {
     console.error('Verify OTP error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
