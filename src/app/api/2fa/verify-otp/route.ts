@@ -45,35 +45,50 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if OTP exists and is not expired
-    if (!user.otpCode || !user.otpExpiresAt) {
-      return NextResponse.json(
-        { success: false, message: 'No OTP found. Please request a new one.' },
-        { status: 400 },
-      )
-    }
+    // Check if test mode is enabled
+    const testMode = process.env.TEST_MODE === 'true' || process.env.OTP_TEST_MODE === 'true'
+    const TEST_OTP = '123456'
 
-    // At this point TypeScript knows otpExpiresAt is not null/undefined
-    const otpExpiresAt = user.otpExpiresAt
-    if (TwoFactorAuth.isOTPExpired(otpExpiresAt)) {
-      // Clean up expired OTP
-      await payloadClient.update({
-        collection: 'users',
-        id: user.id,
-        data: {
-          otpCode: null,
-          otpExpiresAt: null,
-        },
-      })
+    // If test mode is enabled and user is using test OTP, skip OTP existence/expiry checks
+    const isUsingTestOTP = testMode && otp === TEST_OTP
 
-      return NextResponse.json(
-        { success: false, message: 'OTP has expired. Please request a new one.' },
-        { status: 400 },
-      )
+    // Check if OTP exists and is not expired (skip if using test OTP in test mode)
+    if (!isUsingTestOTP) {
+      if (!user.otpCode || !user.otpExpiresAt) {
+        return NextResponse.json(
+          { success: false, message: 'No OTP found. Please request a new one.' },
+          { status: 400 },
+        )
+      }
+
+      // At this point TypeScript knows otpExpiresAt is not null/undefined
+      const otpExpiresAt = user.otpExpiresAt
+      if (TwoFactorAuth.isOTPExpired(otpExpiresAt)) {
+        // Clean up expired OTP
+        await payloadClient.update({
+          collection: 'users',
+          id: user.id,
+          data: {
+            otpCode: null,
+            otpExpiresAt: null,
+          },
+        })
+
+        return NextResponse.json(
+          { success: false, message: 'OTP has expired. Please request a new one.' },
+          { status: 400 },
+        )
+      }
     }
 
     // Verify OTP
-    if (user.otpCode !== otp) {
+    // In test mode, accept the test OTP (123456) or the actual OTP
+    // In production mode, only accept the actual OTP
+    const isValidOTP = testMode
+      ? otp === TEST_OTP || (user.otpCode && user.otpCode === otp)
+      : user.otpCode === otp
+
+    if (!isValidOTP) {
       return NextResponse.json({ success: false, message: 'Invalid OTP' }, { status: 400 })
     }
 

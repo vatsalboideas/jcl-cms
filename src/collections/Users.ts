@@ -4,6 +4,7 @@ import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import UserRoles from '@/utils/RoleTypes'
 import { ValidationError, type CollectionConfig } from 'payload'
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{12,}$/
+const REQUIRED_EMAIL_DOMAIN = 'boideas.com'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -41,27 +42,106 @@ export const Users: CollectionConfig = {
     //   },
     // ],
     beforeValidate: [
-      async ({ data }) => {
-        const pwd = data?.password
-        if (!pwd) return // skip if not changing/creating password
+      async ({ data, operation }) => {
+        // Validate email domain (backup validation in hooks)
+        if (data?.email) {
+          const email = data.email.toString().trim().toLowerCase()
+          const emailParts = email.split('@')
 
-        if (!passwordRegex.test(pwd)) {
-          throw new ValidationError({
-            errors: [
-              {
-                message:
-                  'Password must be at least 12 characters long and include uppercase, lowercase, number, and special character.',
-                path: 'password',
-              },
-            ],
-          })
+          if (emailParts.length !== 2 || emailParts[1] !== REQUIRED_EMAIL_DOMAIN) {
+            throw new ValidationError({
+              errors: [
+                {
+                  message: `Email must be from the ${REQUIRED_EMAIL_DOMAIN} domain.`,
+                  path: 'email',
+                },
+              ],
+            })
+          }
+        }
+
+        // Validate password
+        const pwd = data?.password
+        if (pwd) {
+          if (!passwordRegex.test(pwd)) {
+            throw new ValidationError({
+              errors: [
+                {
+                  message:
+                    'Password must be at least 12 characters long and include uppercase, lowercase, number, and special character.',
+                  path: 'password',
+                },
+              ],
+            })
+          }
+        }
+      },
+    ],
+    beforeChange: [
+      async ({ data, req, operation, originalDoc }) => {
+        // Validate email domain on update (only if email is being changed)
+        if (data?.email && operation === 'update') {
+          const newEmail = data.email.toString().trim().toLowerCase()
+          const existingEmail = originalDoc?.email?.toString().trim().toLowerCase()
+
+          // Only validate if email is actually being changed
+          if (newEmail !== existingEmail) {
+            const emailParts = newEmail.split('@')
+
+            if (emailParts.length !== 2 || emailParts[1] !== REQUIRED_EMAIL_DOMAIN) {
+              throw new ValidationError({
+                errors: [
+                  {
+                    message: `Email must be from the ${REQUIRED_EMAIL_DOMAIN} domain.`,
+                    path: 'email',
+                  },
+                ],
+              })
+            }
+          }
+        } else if (data?.email && operation === 'create') {
+          // Validate email domain on create
+          const email = data.email.toString().trim().toLowerCase()
+          const emailParts = email.split('@')
+
+          if (emailParts.length !== 2 || emailParts[1] !== REQUIRED_EMAIL_DOMAIN) {
+            throw new ValidationError({
+              errors: [
+                {
+                  message: `Email must be from the ${REQUIRED_EMAIL_DOMAIN} domain.`,
+                  path: 'email',
+                },
+              ],
+            })
+          }
         }
       },
     ],
   },
   fields: [
-    // Email added by default
-    // Add more fields as needed
+    // Override email field to add domain validation
+    {
+      name: 'email',
+      type: 'email',
+      required: true,
+      validate: (value: string | null | undefined) => {
+        if (!value || typeof value !== 'string') {
+          return 'Email is required'
+        }
+        const email = value.trim().toLowerCase()
+        const emailParts = email.split('@')
+
+        if (emailParts.length !== 2) {
+          return 'Invalid email format'
+        }
+
+        if (emailParts[1] !== REQUIRED_EMAIL_DOMAIN) {
+          return `Email must be from the ${REQUIRED_EMAIL_DOMAIN} domain.`
+        }
+
+        return true
+      },
+    },
     {
       name: 'firstName',
       type: 'text',
