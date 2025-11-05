@@ -125,19 +125,36 @@ export async function POST(req: NextRequest) {
     const isProduction = process.env.NODE_ENV === 'production'
     const isSecure = isProduction
 
-    // Get domain from environment or request origin
+    // Get domain from environment variable first, then from request origin
+    let cookieDomain: string | undefined = process.env.COOKIE_DOMAIN || undefined
     const origin = req.headers.get('origin') || req.headers.get('referer') || ''
-    let cookieDomain: string | undefined = undefined
 
-    // In production, extract domain from origin if available
-    if (isProduction && origin) {
+    // Helper function to check if a string is an IP address
+    const isIPAddress = (hostname: string): boolean => {
+      // IPv4 regex
+      const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/
+      // IPv6 regex (simplified)
+      const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/
+      return ipv4Regex.test(hostname) || ipv6Regex.test(hostname)
+    }
+
+    // In production, extract domain from origin if not set via env var
+    if (!cookieDomain && isProduction && origin) {
       try {
         const url = new URL(origin)
-        // Only set domain if it's not localhost (for production domains)
-        if (!url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+        const hostname = url.hostname
+
+        // Don't set domain for IP addresses or localhost
+        if (
+          !isIPAddress(hostname) &&
+          !hostname.includes('localhost') &&
+          !hostname.includes('127.0.0.1') &&
+          hostname.includes('.') // Must have at least one dot (e.g., example.com)
+        ) {
           // Extract root domain (e.g., example.com from app.example.com)
-          const hostnameParts = url.hostname.split('.')
-          if (hostnameParts.length >= 2) {
+          const hostnameParts = hostname.split('.')
+          // Only extract if we have at least 2 parts and it's a valid domain
+          if (hostnameParts.length >= 2 && hostnameParts.every((part) => part.length > 0)) {
             cookieDomain = '.' + hostnameParts.slice(-2).join('.')
           }
         }
