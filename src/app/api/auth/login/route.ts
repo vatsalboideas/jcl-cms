@@ -55,7 +55,26 @@ export async function POST(req: NextRequest) {
     }
 
     // 2FA not enabled — set auth cookie and return token and user info
-    const isSecure = process.env.NODE_ENV === 'production'
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    // Detect if request is actually HTTPS
+    const forwardedProto = req.headers.get('x-forwarded-proto')
+    let protocol = forwardedProto || req.nextUrl.protocol || ''
+    const origin = req.headers.get('origin') || req.headers.get('referer') || ''
+
+    if (!protocol && origin) {
+      try {
+        const originUrl = new URL(origin)
+        protocol = originUrl.protocol
+      } catch (_e) {
+        // Ignore parsing errors
+      }
+    }
+
+    const isActuallyHTTPS = protocol === 'https:' || protocol === 'https'
+    const forceSecure = process.env.FORCE_SECURE_COOKIE === 'true'
+    const isSecure = forceSecure || (isProduction && isActuallyHTTPS)
+
     const response = NextResponse.json({
       success: true,
       requires2FA: false,
@@ -77,6 +96,7 @@ export async function POST(req: NextRequest) {
       sameSite: 'lax',
       secure: isSecure,
       path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
     })
     return response
   } catch (error) {

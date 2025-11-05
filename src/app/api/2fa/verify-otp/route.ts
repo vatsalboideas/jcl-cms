@@ -123,11 +123,32 @@ export async function POST(req: NextRequest) {
 
     // Set admin auth cookie so Payload Admin logs in
     const isProduction = process.env.NODE_ENV === 'production'
-    const isSecure = isProduction
 
     // Get domain from environment variable first, then from request origin
     let cookieDomain: string | undefined = process.env.COOKIE_DOMAIN || undefined
     const origin = req.headers.get('origin') || req.headers.get('referer') || ''
+
+    // Detect if request is actually HTTPS (check protocol from request)
+    // Check x-forwarded-proto header (for proxies/load balancers), URL protocol, or origin
+    const forwardedProto = req.headers.get('x-forwarded-proto')
+    let protocol = forwardedProto || req.nextUrl.protocol || ''
+
+    // Also check origin URL if available
+    if (!protocol && origin) {
+      try {
+        const originUrl = new URL(origin)
+        protocol = originUrl.protocol
+      } catch (_e) {
+        // Ignore parsing errors
+      }
+    }
+
+    const isActuallyHTTPS = protocol === 'https:' || protocol === 'https'
+
+    // Only set secure flag if actually using HTTPS (or force via env var)
+    // In development, never use secure cookies unless forced
+    const forceSecure = process.env.FORCE_SECURE_COOKIE === 'true'
+    const isSecure = forceSecure || (isProduction && isActuallyHTTPS)
 
     // Helper function to check if a string is an IP address
     const isIPAddress = (hostname: string): boolean => {
@@ -171,6 +192,9 @@ export async function POST(req: NextRequest) {
       path: '/',
       hasToken: !!tokenToReturn,
       tokenLength: tokenToReturn?.length,
+      protocol: protocol || 'unknown',
+      forwardedProto: forwardedProto || 'not set',
+      isActuallyHTTPS,
     })
 
     const response = NextResponse.json({
