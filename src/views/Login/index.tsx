@@ -15,6 +15,11 @@ const LoginView: React.FC<AdminViewProps> = () => {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
 
+  const reset2FAState = useCallback(() => {
+    setRequires2FA(false)
+    setOtp('')
+  }, [])
+
   const handleLogin = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -30,6 +35,7 @@ const LoginView: React.FC<AdminViewProps> = () => {
 
       if (data?.requires2FA) {
         setRequires2FA(true)
+        setOtp('')
         // send OTP immediately
         const sendRes = await fetch('/api/2fa/send-otp', {
           method: 'POST',
@@ -37,7 +43,10 @@ const LoginView: React.FC<AdminViewProps> = () => {
           body: JSON.stringify({ email }),
         })
         const sendData = await sendRes.json()
-        if (!sendRes.ok) throw new Error(sendData?.message || 'Failed to send OTP')
+        if (!sendRes.ok) {
+          reset2FAState()
+          throw new Error(sendData?.message || 'Failed to send OTP')
+        }
         setInfo('Verification code sent to your email')
       } else {
         // Non-2FA path: token cookie is already set by Payload default login when used directly,
@@ -46,10 +55,11 @@ const LoginView: React.FC<AdminViewProps> = () => {
       }
     } catch (e: any) {
       setError(e?.message || 'Login failed')
+      reset2FAState()
     } finally {
       setLoading(false)
     }
-  }, [email, password])
+  }, [email, password, reset2FAState])
 
   const handleVerify = useCallback(async () => {
     setLoading(true)
