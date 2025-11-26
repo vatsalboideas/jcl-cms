@@ -2,9 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { TwoFactorAuth, TwoFactorConfig } from '@/utils/TwoFactorAuth'
+import { enforceRateLimit } from '@/utils/rateLimiter'
+import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await enforceRateLimit({
+      req,
+      route: '2fa-setup',
+      limit: 3,
+      windowMs: 10 * 60 * 1000,
+    })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many 2FA setup attempts. Please try again in a few minutes.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
     const { email } = await req.json()
 
     if (!email) {
@@ -65,7 +89,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('2FA setup error:', error)
+    logger.error('2FA setup error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }

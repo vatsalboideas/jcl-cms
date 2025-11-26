@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
+import { enforceRateLimit } from '@/utils/rateLimiter'
+import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await enforceRateLimit({
+      req,
+      route: 'auth-login',
+      limit: 5,
+      windowMs: 60 * 1000,
+    })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, message: 'Too many login attempts. Please wait before retrying.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
     const { email, password } = await req.json()
 
     if (!email || !password) {
@@ -100,7 +121,7 @@ export async function POST(req: NextRequest) {
     })
     return response
   } catch (error) {
-    console.error('Login error:', error)
+    logger.error('Login error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }

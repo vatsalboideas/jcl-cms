@@ -1,6 +1,7 @@
 import { isApi } from '@/access/isApi'
 import { isContent } from '@/access/isContent'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
+import { logger } from '@/utils/logger'
 import {
   FixedToolbarFeature,
   HTMLConverterFeature,
@@ -261,7 +262,7 @@ export const Works: CollectionConfig = {
   hooks: {
     beforeValidate: [
       ({ data }: any) => {
-        console.log('Before validate hook - works data:', data)
+        logger.log('Before validate hook - works data:', data)
 
         // Sanitize text inputs
         if (data.title) data.title = data.title.trim()
@@ -283,7 +284,7 @@ export const Works: CollectionConfig = {
     ],
     beforeChange: [
       async ({ data, req }) => {
-        console.log('Before change hook - processing work submission')
+        logger.log('Before change hook - processing work submission')
 
         // Additional validation or processing
         return data

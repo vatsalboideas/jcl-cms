@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import payload from 'payload'
 import { TwoFactorAuth } from '@/utils/TwoFactorAuth'
+import { enforceRateLimit } from '@/utils/rateLimiter'
+import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await enforceRateLimit({
+      req,
+      route: '2fa-backup-code',
+      limit: 5,
+      windowMs: 10 * 60 * 1000,
+    })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many backup code attempts. Please wait before trying again.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
     const { email, backupCode } = await req.json()
 
     if (!email || !backupCode) {
@@ -96,7 +120,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Backup code verification error:', error)
+    logger.error('Backup code verification error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }

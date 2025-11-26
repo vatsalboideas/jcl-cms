@@ -3,6 +3,7 @@ import type { AdminViewProps } from 'payload'
 import React, { Fragment, useCallback, useState } from 'react'
 import styles from './styles.module.css'
 import Link from 'next/link'
+import { logger } from '@/utils/logger'
 
 const LoginView: React.FC<AdminViewProps> = () => {
   const [email, setEmail] = useState('')
@@ -76,7 +77,7 @@ const LoginView: React.FC<AdminViewProps> = () => {
 
       // Check if cookie was set (via response header)
       const authSet = res.headers.get('X-Auth-Set')
-      console.log(
+      logger.log(
         '[Login] OTP verified, auth set:',
         authSet,
         'Token:',
@@ -88,12 +89,12 @@ const LoginView: React.FC<AdminViewProps> = () => {
 
       // Use full URL for redirect to ensure proper navigation
       const adminUrl = window.location.origin + '/admin'
-      console.log('[Login] Redirecting to:', adminUrl)
+      logger.log('[Login] Redirecting to:', adminUrl)
 
       // Force a hard redirect to ensure cookie is read
       window.location.href = adminUrl
     } catch (e: any) {
-      console.error('[Login] OTP verification error:', e)
+      logger.error('[Login] OTP verification error:', e)
       setError(e?.message || 'Verification failed')
       setLoading(false)
     }

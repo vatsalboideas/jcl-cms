@@ -70,6 +70,7 @@ import path from 'path'
 import { isSuperAdminandAdmin } from '@/access/isSuperAdminandAdmin'
 import { mediaReadAccess } from '@/access/mediaReadAccess'
 import UserRoles from '@/utils/RoleTypes'
+import { logger } from '@/utils/logger'
 
 // Define allowed file types with their extensions
 const ALLOWED_FILE_TYPES = {
@@ -176,7 +177,7 @@ function validateFileType(filename: string, mimetype: string) {
   // Get file extension from original filename
   const extension = path.extname(filename).toLowerCase().slice(1)
 
-  console.log(extension, 'extension')
+  logger.log(extension, 'extension')
 
   // Check if mimetype is allowed
   // @ts-ignore
@@ -284,9 +285,9 @@ export const Media: CollectionConfig = {
     beforeValidate: [
       async ({ data, req, originalDoc }) => {
         // Debug: log incoming body and data
-        console.log('beforeValidate - originalDoc:', originalDoc)
-        console.log('beforeValidate - req.body:', req.body)
-        console.log('beforeValidate - data:', data?.alt)
+        logger.log('beforeValidate - originalDoc:', originalDoc)
+        logger.log('beforeValidate - req.body:', req.body)
+        logger.log('beforeValidate - data:', data?.alt)
         // Create uploads directory if it doesn't exist
         if (data) {
           data.alt = data?.filename
@@ -329,7 +330,7 @@ export const Media: CollectionConfig = {
                 // Allow medium-risk PDFs with warning
                 data.securityStatus = 'warning'
                 data.securityMessage = securityResult.warning
-                console.warn('PDF Security Warning:', securityResult.warning)
+                logger.warn('PDF Security Warning:', securityResult.warning)
               } else {
                 // Safe PDF
                 data.securityStatus = 'safe'
@@ -352,9 +353,9 @@ export const Media: CollectionConfig = {
     afterChange: [
       async ({ doc }) => {
         // Log security status for monitoring
-        console.log(`File uploaded: ${doc.filename}, Security Status: ${doc.securityStatus}`)
+        logger.log(`File uploaded: ${doc.filename}, Security Status: ${doc.securityStatus}`)
         if (doc.securityMessage) {
-          console.log(`Security Message: ${doc.securityMessage}`)
+          logger.log(`Security Message: ${doc.securityMessage}`)
         }
       },
       ({ operation, doc }: { operation: 'create' | 'update'; doc: any }) => {

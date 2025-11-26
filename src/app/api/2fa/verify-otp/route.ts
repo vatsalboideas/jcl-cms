@@ -2,10 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { TwoFactorAuth } from '@/utils/TwoFactorAuth'
+import { enforceRateLimit } from '@/utils/rateLimiter'
+import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
     const { email, otp } = await req.json()
+
+    const mask = (value?: string | null) => {
+      if (!value) return 'none'
+      const str = value.toString()
+      if (str.length <= 2) return '*'.repeat(str.length)
+      return `${'*'.repeat(str.length - 2)}${str.slice(-2)}`
+    }
+
+    logger.log('[2FA][Verify OTP] Request triggered', {
+      email: email || 'missing',
+      ip: req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: req.headers.get('user-agent'),
+    })
 
     if (!email || !otp) {
       return NextResponse.json(
@@ -14,8 +29,77 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const rateLimit = await enforceRateLimit({
+      req,
+      route: '2fa-verify-otp',
+      limit: 5,
+      windowMs: 5 * 60 * 1000,
+    })
+
+    logger.log('[2FA][Verify OTP] Global rate limit status', {
+      identifier: rateLimit.identifier,
+      remaining: rateLimit.remaining,
+      limit: rateLimit.limit,
+    })
+
+    if (!rateLimit.allowed) {
+      logger.warn('[2FA][Verify OTP] Global rate limit hit', {
+        identifier: rateLimit.identifier,
+        retryAfter: rateLimit.retryAfter,
+      })
+      return NextResponse.json(
+        { success: false, message: 'Too many verification attempts. Please wait before retrying.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const accountRateLimit = await enforceRateLimit({
+      req,
+      route: '2fa-verify-otp-account',
+      limit: 5,
+      windowMs: 5 * 60 * 1000,
+      identifierOverride: `user:${normalizedEmail}`,
+    })
+
+    logger.log('[2FA][Verify OTP] Account rate limit status', {
+      email: normalizedEmail,
+      identifier: accountRateLimit.identifier,
+      remaining: accountRateLimit.remaining,
+      limit: accountRateLimit.limit,
+    })
+
+    if (!accountRateLimit.allowed) {
+      logger.warn('[2FA][Verify OTP] Account rate limit hit', {
+        email: normalizedEmail,
+        identifier: accountRateLimit.identifier,
+        retryAfter: accountRateLimit.retryAfter,
+      })
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            'Too many verification attempts for this account. Please wait before trying again.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': accountRateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
     // Validate OTP format
     if (!TwoFactorAuth.validateOTPFormat(otp)) {
+      logger.warn('[2FA][Verify OTP] Invalid OTP format received', {
+        email: normalizedEmail,
+      })
       return NextResponse.json({ success: false, message: 'Invalid OTP format' }, { status: 400 })
     }
 
@@ -26,9 +110,13 @@ export async function POST(req: NextRequest) {
       collection: 'users',
       where: {
         email: {
-          equals: email,
+          equals: normalizedEmail,
         },
       },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      showHiddenFields: true,
     })
 
     if (!users.docs.length) {
@@ -89,6 +177,12 @@ export async function POST(req: NextRequest) {
       : user.otpCode === otp
 
     if (!isValidOTP) {
+      logger.warn('[2FA][Verify OTP] OTP mismatch', {
+        email: normalizedEmail,
+        provided: mask(otp),
+        stored: mask(user.otpCode),
+        testMode,
+      })
       return NextResponse.json({ success: false, message: 'Invalid OTP' }, { status: 400 })
     }
 
@@ -100,12 +194,14 @@ export async function POST(req: NextRequest) {
         otpCode: null,
         otpExpiresAt: null,
       },
+      overrideAccess: true,
+      showHiddenFields: true,
     })
 
     const tokenToReturn = updated.pendingLoginToken || user.pendingLoginToken
 
     if (!tokenToReturn) {
-      console.error('[OTP Verify] No pending login token found for user:', user.email, user.id)
+      logger.error('[OTP Verify] No pending login token found for user:', user.email, user.id)
       return NextResponse.json(
         { success: false, message: 'No pending login session found. Please login again.' },
         { status: 400 },
@@ -119,6 +215,7 @@ export async function POST(req: NextRequest) {
       data: {
         pendingLoginToken: null,
       },
+      overrideAccess: true,
     })
 
     // Set admin auth cookie so Payload Admin logs in
@@ -180,12 +277,12 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (e) {
-        console.warn('[OTP Verify] Could not parse origin for cookie domain:', e)
+        logger.warn('[OTP Verify] Could not parse origin for cookie domain:', e)
       }
     }
 
     // Log cookie settings for debugging
-    console.log('[OTP Verify] Setting cookie:', {
+    logger.log('[OTP Verify] Setting cookie:', {
       secure: isSecure,
       sameSite: 'lax',
       domain: cookieDomain || 'not set',
@@ -242,7 +339,7 @@ export async function POST(req: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Verify OTP error:', error)
+    logger.error('Verify OTP error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }

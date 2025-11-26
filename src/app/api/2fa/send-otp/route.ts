@@ -2,14 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { TwoFactorAuth } from '@/utils/TwoFactorAuth'
+import { enforceRateLimit } from '@/utils/rateLimiter'
+import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = await enforceRateLimit({
+      req,
+      route: '2fa-send-otp',
+      limit: 3,
+      windowMs: 5 * 60 * 1000,
+    })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many OTP requests. Please wait a few minutes before trying again.',
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': rateLimit.retryAfter.toString(),
+          },
+        },
+      )
+    }
+
     const { email } = await req.json()
 
     if (!email) {
       return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 })
     }
+
+    const normalizedEmail = email.trim().toLowerCase()
 
     const payloadClient = await getPayload({ config: await configPromise })
 
@@ -18,9 +44,13 @@ export async function POST(req: NextRequest) {
       collection: 'users',
       where: {
         email: {
-          equals: email,
+          equals: normalizedEmail,
         },
       },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      showHiddenFields: true,
     })
 
     if (!users.docs.length) {
@@ -42,7 +72,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = TwoFactorAuth.generateOTPExpiry()
 
     // Log OTP in server logs for debugging as requested
-    console.log(
+    logger.log(
       `[2FA] Generated OTP for ${user.email}: ${otp} (expires at ${new Date(expiresAt).toISOString()})`,
     )
 
@@ -54,6 +84,7 @@ export async function POST(req: NextRequest) {
         otpCode: otp,
         otpExpiresAt: expiresAt.toISOString(),
       },
+      overrideAccess: true,
     })
 
     // Send email with OTP
@@ -122,7 +153,7 @@ export async function POST(req: NextRequest) {
         `,
       })
 
-      console.log(`[2FA] OTP email sent to ${user.email}`)
+      logger.log(`[2FA] OTP email sent to ${user.email}`)
       return NextResponse.json({
         success: true,
         message: 'OTP sent successfully',
@@ -131,8 +162,8 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (emailError) {
-      console.error('Email sending error:', emailError)
-      console.error('[2FA] SMTP details check:', {
+      logger.error('Email sending error:', emailError)
+      logger.error('[2FA] SMTP details check:', {
         SMTP_HOST: process.env.SMTP_HOST,
         SMTP_PORT: process.env.SMTP_PORT,
         SMTP_USER: process.env.SMTP_USER,
@@ -141,7 +172,7 @@ export async function POST(req: NextRequest) {
 
       // OTP is still saved in DB and can be used for verification
       // Email failure doesn't prevent OTP validation
-      console.warn(
+      logger.warn(
         `[2FA] Email failed for ${user.email}, but OTP ${otp} is still valid and saved in database`,
       )
 
@@ -156,7 +187,7 @@ export async function POST(req: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('Send OTP error:', error)
+    logger.error('Send OTP error:', error)
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 })
   }
 }

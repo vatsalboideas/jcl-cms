@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer'
 import nodemailer from 'nodemailer'
+import { logger } from '@/utils/logger'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
@@ -117,10 +118,10 @@ export default buildConfig({
     // Proactive SMTP verification for clearer startup diagnostics
     try {
       if (!smtpUser || !smtpPass) {
-        console.warn('[Email] SMTP_USER/SMTP_PASSWORD not set. Emails will fail until configured.')
+        logger.warn('[Email] SMTP_USER/SMTP_PASSWORD not set. Emails will fail until configured.')
       }
       if (!smtpFrom) {
-        console.warn(
+        logger.warn(
           '[Email] No SMTP_FROM provided. Using SMTP_USER as from address. Ensure it is a verified sender.',
         )
       }
@@ -133,9 +134,9 @@ export default buildConfig({
       })
 
       await transporter.verify()
-      console.log(`[Email] SMTP verified: host=${smtpHost} port=${smtpPort} secure=${smtpSecure}`)
+      logger.log(`[Email] SMTP verified: host=${smtpHost} port=${smtpPort} secure=${smtpSecure}`)
     } catch (err) {
-      console.error('[Email] SMTP verification failed:', err)
+      logger.error('[Email] SMTP verification failed:', err)
     }
   },
 })

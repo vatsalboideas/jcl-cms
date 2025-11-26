@@ -62,6 +62,7 @@ import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
 import { hasValidJWT } from '@/access/isLoggedIn'
 import Decrypt from '@/utils/DataDecrypt'
+import { logger } from '@/utils/logger'
 
 export const CareerForms: CollectionConfig = {
   slug: 'careerforms',
@@ -119,7 +120,7 @@ export const CareerForms: CollectionConfig = {
       },
       // Client-side validation
       validate: (file: any) => {
-        console.log('Validating resume file:', file)
+        logger.log('Validating resume file:', file)
 
         // Check if file exists
         if (!file) {
@@ -166,7 +167,7 @@ export const CareerForms: CollectionConfig = {
     beforeValidate: [
       ({ data }: any) => {
         // Additional server-side validation
-        console.log('Before validate hook - data:', data)
+        logger.log('Before validate hook - data:', data)
 
         // Sanitize text inputs
         if (data.firstName) {
@@ -210,7 +211,7 @@ export const CareerForms: CollectionConfig = {
     ],
     beforeChange: [
       async ({ data, req }) => {
-        console.log('Before change hook - validating resume upload')
+        logger.log('Before change hook - validating resume upload')
 
         // Additional server-side file validation
         if (data.resume && typeof data.resume === 'string') {
@@ -232,7 +233,7 @@ export const CareerForms: CollectionConfig = {
               }
             }
           } catch (error) {
-            console.error('Resume validation error:', error)
+            logger.error('Resume validation error:', error)
             throw error
           }
         }

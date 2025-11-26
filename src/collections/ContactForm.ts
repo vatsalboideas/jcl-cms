@@ -4,6 +4,7 @@ import { hasValidJWT } from '@/access/isLoggedIn'
 import encryptionHooks from '@/utils/EnryptionHooks'
 import type { CollectionConfig } from 'payload'
 import Decrypt from '@/utils/DataDecrypt'
+import { logger } from '@/utils/logger'
 
 export const ContactForms: CollectionConfig = {
   slug: 'contactforms',
@@ -157,7 +158,7 @@ export const ContactForms: CollectionConfig = {
             data.message = Decrypt(data.message)
           }
         } catch (error) {
-          console.error('Decryption error:', error)
+          logger.error('Decryption error:', error)
           throw new Error('Failed to process encrypted data')
         }
 
