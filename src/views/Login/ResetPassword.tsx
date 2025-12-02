@@ -2,6 +2,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import styles from './styles.module.css'
+import Link from 'next/link'
 
 const ResetPasswordView: React.FC = () => {
   const searchParams = useSearchParams()
@@ -94,9 +95,9 @@ const ResetPasswordView: React.FC = () => {
               {loading ? 'Sending…' : 'Send reset link'}
             </button>
             <div className={styles.helperRow}>
-              <a className={styles.link} href="/auth/login">
+              <Link className={styles.link} href="/admin/auth/login">
                 Back to sign in
-              </a>
+              </Link>
             </div>
           </form>
         ) : (
@@ -140,9 +141,9 @@ const ResetPasswordView: React.FC = () => {
               {loading ? 'Updating…' : 'Update password'}
             </button>
             <div className={styles.helperRow}>
-              <a className={styles.link} href="/auth/login">
+              <Link className={styles.link} href="/admin/auth/login">
                 Back to sign in
-              </a>
+              </Link>
             </div>
           </form>
         )}

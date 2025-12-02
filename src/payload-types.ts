@@ -176,6 +176,10 @@ export interface User {
    * Temporarily holds JWT after password validation until OTP is verified
    */
   pendingLoginToken?: string | null;
+  /**
+   * Counts consecutive invalid OTP verification attempts for the current OTP value
+   */
+  otpFailedAttempts?: number | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -602,6 +606,7 @@ export interface UsersSelect<T extends boolean = true> {
   otpCode?: T;
   otpExpiresAt?: T;
   pendingLoginToken?: T;
+  otpFailedAttempts?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

@@ -21,6 +21,11 @@
     var(--bg);
   padding: 24px;
   color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+}
+
+.screen * {
+  box-sizing: border-box;
 }
 
 /* Global resets removed to satisfy CSS Modules purity rules. */
@@ -156,10 +161,28 @@
   font-size: 13px;
 }
 
+.countdown {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .info {
   margin-top: 10px;
   color: var(--info);
   font-size: 13px;
 }
+
+@media (max-width: 480px) {
+  .screen {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 20px;
+  }
+}
+
 
 

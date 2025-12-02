@@ -60,6 +60,7 @@ export default buildConfig({
     },
     routes: {
       login: '/auth/login',
+      forgot: '/auth/reset-password',
     },
     components: {
       views: {
@@ -67,7 +68,7 @@ export default buildConfig({
           Component: './views/Login',
           path: '/auth/login',
         },
-        resetPassword: {
+        forgotPassword: {
           Component: './views/Login/ResetPassword',
           path: '/auth/reset-password',
         },

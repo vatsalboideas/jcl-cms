@@ -7,11 +7,20 @@ import { logger } from '@/utils/logger'
 
 export async function POST(req: NextRequest) {
   try {
+    const { email } = await req.json()
+
+    if (!email) {
+      return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
     const rateLimit = await enforceRateLimit({
       req,
       route: '2fa-send-otp',
       limit: 3,
       windowMs: 5 * 60 * 1000,
+      identifierOverride: normalizedEmail,
     })
 
     if (!rateLimit.allowed) {
@@ -28,14 +37,6 @@ export async function POST(req: NextRequest) {
         },
       )
     }
-
-    const { email } = await req.json()
-
-    if (!email) {
-      return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 })
-    }
-
-    const normalizedEmail = email.trim().toLowerCase()
 
     const payloadClient = await getPayload({ config: await configPromise })
 
@@ -83,6 +84,8 @@ export async function POST(req: NextRequest) {
       data: {
         otpCode: otp,
         otpExpiresAt: expiresAt.toISOString(),
+        // Reset failed attempts whenever a new OTP is generated
+        otpFailedAttempts: 0,
       },
       overrideAccess: true,
     })

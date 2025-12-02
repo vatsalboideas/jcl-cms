@@ -297,5 +297,20 @@ export const Users: CollectionConfig = {
         create: () => false,
       },
     },
+    {
+      name: 'otpFailedAttempts',
+      type: 'number',
+      admin: {
+        readOnly: true,
+        description:
+          'Counts consecutive invalid OTP verification attempts for the current OTP value',
+        hidden: true,
+      },
+      access: {
+        read: () => false,
+        update: () => false,
+        create: () => false,
+      },
+    },
   ],
 }

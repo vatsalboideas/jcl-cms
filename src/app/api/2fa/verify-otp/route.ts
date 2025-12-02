@@ -48,7 +48,11 @@ export async function POST(req: NextRequest) {
         retryAfter: rateLimit.retryAfter,
       })
       return NextResponse.json(
-        { success: false, message: 'Too many verification attempts. Please wait before retrying.' },
+        {
+          success: false,
+          message: 'Too many verification attempts. Please wait before retrying.',
+          retryAfter: rateLimit.retryAfter,
+        },
         {
           status: 429,
           headers: {
@@ -85,6 +89,7 @@ export async function POST(req: NextRequest) {
           success: false,
           message:
             'Too many verification attempts for this account. Please wait before trying again.',
+          retryAfter: accountRateLimit.retryAfter,
         },
         {
           status: 429,
@@ -124,6 +129,10 @@ export async function POST(req: NextRequest) {
     }
 
     const user = users.docs[0]
+
+    // Maximum number of invalid OTP attempts allowed for a single OTP value.
+    // This should stay in sync with the per-account rate limit (currently 5).
+    const MAX_INVALID_OTP_ATTEMPTS = 5
 
     // Check if 2FA is enabled
     if (!user.twoFactorEnabled) {
@@ -169,6 +178,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // If the user has already exhausted invalid attempts for this OTP, force them
+    // to request a new one. This ensures the last "correct" OTP cannot be used
+    // once the invalid-attempts threshold has been crossed.
+    const currentFailedAttempts =
+      (user as { otpFailedAttempts?: number | null }).otpFailedAttempts ?? 0
+    if (currentFailedAttempts >= MAX_INVALID_OTP_ATTEMPTS && !isUsingTestOTP) {
+      logger.warn('[2FA][Verify OTP] OTP locked due to too many invalid attempts', {
+        email: normalizedEmail,
+        currentFailedAttempts,
+      })
+
+      // Clear OTP so it cannot be used again
+      await payloadClient.update({
+        collection: 'users',
+        id: user.id,
+        data: {
+          otpCode: null,
+          otpExpiresAt: null,
+        },
+        overrideAccess: true,
+        showHiddenFields: true,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Too many invalid attempts for this code. Please request a new OTP to continue.',
+        },
+        { status: 400 },
+      )
+    }
+
     // Verify OTP
     // In test mode, accept the test OTP (123456) or the actual OTP
     // In production mode, only accept the actual OTP
@@ -177,13 +218,41 @@ export async function POST(req: NextRequest) {
       : user.otpCode === otp
 
     if (!isValidOTP) {
+      const nextFailedAttempts = currentFailedAttempts + 1
+
       logger.warn('[2FA][Verify OTP] OTP mismatch', {
         email: normalizedEmail,
         provided: mask(otp),
         stored: mask(user.otpCode),
         testMode,
+        currentFailedAttempts,
+        nextFailedAttempts,
       })
-      return NextResponse.json({ success: false, message: 'Invalid OTP' }, { status: 400 })
+
+      // Increment failed-attempt counter; if we cross the limit, also invalidate the OTP
+      const shouldInvalidateOTP = nextFailedAttempts >= MAX_INVALID_OTP_ATTEMPTS
+
+      await payloadClient.update({
+        collection: 'users',
+        id: user.id,
+        data: {
+          otpFailedAttempts: nextFailedAttempts,
+          ...(shouldInvalidateOTP
+            ? {
+                otpCode: null,
+                otpExpiresAt: null,
+              }
+            : {}),
+        },
+        overrideAccess: true,
+        showHiddenFields: true,
+      })
+
+      const message = shouldInvalidateOTP
+        ? 'Too many invalid attempts for this code. Please request a new OTP to continue.'
+        : 'Invalid OTP'
+
+      return NextResponse.json({ success: false, message }, { status: 400 })
     }
 
     // Clear the OTP and return pending login token, if present
@@ -193,6 +262,8 @@ export async function POST(req: NextRequest) {
       data: {
         otpCode: null,
         otpExpiresAt: null,
+        // Clear failed-attempt counter after successful verification
+        otpFailedAttempts: 0,
       },
       overrideAccess: true,
       showHiddenFields: true,

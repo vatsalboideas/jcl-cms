@@ -1,6 +1,6 @@
 'use client'
 import type { AdminViewProps } from 'payload'
-import React, { Fragment, useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import styles from './styles.module.css'
 import Link from 'next/link'
 import { logger } from '@/utils/logger'
@@ -15,11 +15,30 @@ const LoginView: React.FC<AdminViewProps> = () => {
   const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null)
 
   const reset2FAState = useCallback(() => {
     setRequires2FA(false)
     setOtp('')
   }, [])
+
+  // Handle countdown timer for rate limit errors
+  useEffect(() => {
+    if (retryAfterSeconds === null || retryAfterSeconds <= 0) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      setRetryAfterSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [retryAfterSeconds])
 
   const handleLogin = useCallback(async () => {
     setLoading(true)
@@ -54,8 +73,9 @@ const LoginView: React.FC<AdminViewProps> = () => {
         // but here we received token via API. Redirect to admin.
         window.location.href = '/admin'
       }
-    } catch (e: any) {
-      setError(e?.message || 'Login failed')
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Login failed'
+      setError(errorMessage)
       reset2FAState()
     } finally {
       setLoading(false)
@@ -65,6 +85,7 @@ const LoginView: React.FC<AdminViewProps> = () => {
   const handleVerify = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setRetryAfterSeconds(null)
     try {
       const res = await fetch('/api/2fa/verify-otp', {
         method: 'POST',
@@ -73,7 +94,13 @@ const LoginView: React.FC<AdminViewProps> = () => {
         credentials: 'include', // Ensure cookies are sent and received
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.message || 'Invalid code')
+      if (!res.ok) {
+        // Check if this is a rate limit error with retryAfter
+        if (res.status === 429 && data?.retryAfter) {
+          setRetryAfterSeconds(data.retryAfter)
+        }
+        throw new Error(data?.message || 'Invalid code')
+      }
 
       // Check if cookie was set (via response header)
       const authSet = res.headers.get('X-Auth-Set')
@@ -93,9 +120,10 @@ const LoginView: React.FC<AdminViewProps> = () => {
 
       // Force a hard redirect to ensure cookie is read
       window.location.href = adminUrl
-    } catch (e: any) {
+    } catch (e: unknown) {
       logger.error('[Login] OTP verification error:', e)
-      setError(e?.message || 'Verification failed')
+      const errorMessage = e instanceof Error ? e.message : 'Verification failed'
+      setError(errorMessage)
       setLoading(false)
     }
   }, [email, otp])
@@ -105,6 +133,7 @@ const LoginView: React.FC<AdminViewProps> = () => {
     setResendLoading(true)
     setError(null)
     setInfo(null)
+    setRetryAfterSeconds(null)
     try {
       const res = await fetch('/api/2fa/send-otp', {
         method: 'POST',
@@ -124,8 +153,9 @@ const LoginView: React.FC<AdminViewProps> = () => {
           return t - 1
         })
       }, 1000)
-    } catch (e: any) {
-      setError(e?.message || 'Failed to resend code')
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to resend code'
+      setError(errorMessage)
     } finally {
       setResendLoading(false)
     }
@@ -179,7 +209,7 @@ const LoginView: React.FC<AdminViewProps> = () => {
             </button>
 
             <div className={styles.helperRow}>
-              <Link className={styles.link} href="/admin/forgot">
+              <Link className={styles.link} href="/admin/auth/reset-password">
                 Forgot your password?
               </Link>
             </div>
@@ -209,7 +239,14 @@ const LoginView: React.FC<AdminViewProps> = () => {
               autoComplete="one-time-code"
             />
             {info && <div className={styles.info}>{info}</div>}
-            {error && <div className={styles.error}>{error}</div>}
+            {error && (
+              <div className={styles.error}>
+                {error}
+                {retryAfterSeconds !== null && retryAfterSeconds > 0 && (
+                  <span className={styles.countdown}> (Retry in {retryAfterSeconds}s)</span>
+                )}
+              </div>
+            )}
             <button type="submit" disabled={loading} className={styles.button}>
               {loading ? 'Verifying…' : 'Verify & Continue'}
             </button>
